@@ -1,4 +1,4 @@
-#lang shplait
+#lang shplait  // hi julia 
 
 // Make all "class.rhm" definitions available here, where
 // the "class.rhm" file must be in the same directory
