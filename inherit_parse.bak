@@ -44,8 +44,6 @@ fun parse(s :: Syntax, arg_name :: Symbol) :: ExpI:
       cond
       | syntax_to_symbol(s) == arg_name:
           argI()
-      | syntax_to_symbol(s) == #'arg:
-          argI()
       | syntax_to_symbol(s) == #'this:
           thisI()
       | ~else:
@@ -56,6 +54,8 @@ fun parse(s :: Syntax, arg_name :: Symbol) :: ExpI:
           cond
           | syntax_to_symbol(name) == #'this:
               error(#'parse, "'this' cannot be used as a variable name")
+          | syntax_to_symbol(name) == arg_name:
+              error(#'parse, "A method argument name cannot be used as a variable name")
           | ~else:
               letI(syntax_to_symbol(name), parse(value, arg_name), parse(body, arg_name))
       | '$left + $right':
@@ -86,7 +86,7 @@ module test:
   check: parse('0',  #'none)
          ~is intI(0)
   check: parse('arg',  #'none)
-         ~is argI() 
+         ~is varI(#'arg) // I changed this!!
   check: parse('this',  #'none)
          ~is thisI()
   check: parse('1 + 2',  #'none)

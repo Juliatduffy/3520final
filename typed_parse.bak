@@ -162,19 +162,27 @@ module test:
 module test:
   check: run_t_prog([], 'let x :: Int = 5: x')
          ~is '5'
+
+  // Test: Nested `let` bindings with variables
   check: run_t_prog([], 
                     'let x :: Int = 10:
                        let y :: Int = x + 5:
                          y * 2')
          ~is '30'
+
+  // Test: `let` with shadowing (inner variable shadows outer)
   check: run_t_prog([],
                     'let x :: Int = 10:
                        let x :: Int = 20:
                          x + 5')
          ~is '25'
+
+  // Test: `let` with free variable (should raise an error)
   check: run_t_prog([], 'let x :: Int = y + 5:
                            x')
-         ~raises "typecheck: no type: y not free variable"
+         ~raises "typecheck: free variable"
+
+  // Test: Using argument name as a variable
   check: run_t_prog(['class Test():
                         extends Object
                         method double(arg :: Int) :: Int:
@@ -183,8 +191,8 @@ module test:
          ~is '20'
   check: run_t_prog(['class Test():
                         extends Object
-                        method shadow(x :: Int) :: Int:
-                          let x :: Int = arg + 10:
-                            x * 2'],
+                        method shadow(arg :: Int) :: Int:
+                          let arg :: Int = arg + 10:
+                            arg * 2'],
                     '(new Test()).shadow(5)')
-         ~is '30'
+         ~raises "A method argument name cannot be used as a variable name"
