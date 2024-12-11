@@ -88,7 +88,20 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
     | plusE(l, r): num_plus(recur(l), recur(r))
     | multE(l, r): num_mult(recur(l), recur(r))
     | thisE(): this_val
-    | varE(name): lookup(name, env)
+    | varE(name):
+        try:
+          lookup(name, env)
+          ~catch:
+            match this_val
+            | objV(class_name, fields):
+                match find(classes, class_name)
+                | classC(field_names, _):
+                    try:
+                      find(map2(fun (n, v): values(n, v), field_names, fields), name)
+                      ~catch:
+                        error(#'interp, "free variable: " +& name)
+            | ~else:
+                error(#'interp, "free variable: " +& name)
     | argE(): arg_val
     | newE(class_name, field_exps):
         def c = find(classes, class_name)
@@ -249,3 +262,14 @@ module test:
 
   check: lookup(#'x, mt_env)
          ~raises "free variable: x"
+         
+def posn_class:
+  values(#'Posn, classC([#'x, #'y], []))
+
+def obj = objV(#'Posn, [intV(10), intV(20)])
+
+check: interp(varE(#'x), [posn_class], obj, intV(0), mt_env)
+       ~is intV(10)
+
+check: interp(varE(#'y), [posn_class], obj, intV(0), mt_env)
+       ~is intV(20)

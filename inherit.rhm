@@ -48,7 +48,7 @@ fun exp_i_to_c(a :: ExpI, super_name :: Symbol) :: Exp:
     | plusI(l, r): plusE(recur(l), recur(r))
     | multI(l, r): multE(recur(l), recur(r))
     | argI(): argE()
-    | varI(s): varE(s)
+    | varI(s): varE(s) // here can you check to see if s is a field name and if so, comvert this to a getE for that fiel? if not leave it as a var E
     | thisI(): thisE()
     | newI(class_name, field_exps):
         newE(class_name, map(recur, field_exps))
