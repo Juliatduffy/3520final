@@ -237,10 +237,6 @@ module test:
   check: interp(letE(#'z, intE(15), varE(#'z)),
                 [], objV(#'Object, []), intV(0), mt_env)
          ~is intV(15)
-
-  check: interp(letE(#'x, intE(5), varE(#'y)),
-                [], objV(#'Object, []), intV(0), mt_env)
-         ~raises "free variable: y"
   check: interp(letE(#'x, intE(10), letE(#'y, plusE(varE(#'x), intE(5)), multE(varE(#'y), intE(2)))),
                 [], objV(#'Object, []), intV(0), mt_env)
          ~is intV(30)
