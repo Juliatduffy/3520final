@@ -77,6 +77,8 @@ fun parse(s :: Syntax, arg_name :: Symbol) :: ExpI:
       | '$obj . $field_name':
           getI(parse(obj, arg_name),
                syntax_to_symbol(field_name))
+      | 'if $condition == 0 | $then_branch | $else_branch':
+          ifI(parse(condition, arg_name), parse(then_branch, arg_name), parse(else_branch, arg_name))
       | '($e)':
           parse(e, arg_name)
       | ~else:

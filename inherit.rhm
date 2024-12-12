@@ -12,6 +12,9 @@ type ExpI
         rhs :: ExpI)
 | multI(lhs :: ExpI,
         rhs :: ExpI)
+| ifI(condition :: ExpI,
+      then_branch :: ExpI,
+      else_branch :: ExpI) 
 | argI()
 | thisI()
 | varI(name :: Symbol)
@@ -50,6 +53,8 @@ fun exp_i_to_c(a :: ExpI, super_name :: Symbol) :: Exp:
     | argI(): argE()
     | varI(s): varE(s) // here can you check to see if s is a field name and if so, comvert this to a getE for that fiel? if not leave it as a var E
     | thisI(): thisE()
+    | ifI(condition, then_branch, else_branch):
+        ifE(recur(condition), recur(then_branch), recur(else_branch))
     | newI(class_name, field_exps):
         newE(class_name, map(recur, field_exps))
     | getI(exp, field_name):

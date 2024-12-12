@@ -13,6 +13,7 @@ type Exp
         rhs :: Exp)
 | multE(lhs :: Exp,
         rhs :: Exp)
+| ifE(condition :: Exp, then_branch :: Exp, else_branch :: Exp)
 | argE()
 | varE(name :: Symbol)
 | letE(var_name :: Symbol,
@@ -88,6 +89,16 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
     | plusE(l, r): num_plus(recur(l), recur(r))
     | multE(l, r): num_mult(recur(l), recur(r))
     | thisE(): this_val
+    | ifE(condition, then_branch, else_branch):
+        match recur(condition)
+        | intV(n):
+            cond
+            | n == 0:
+                recur(then_branch)
+            | ~else:
+                recur(else_branch)
+        | ~else:
+            error(#'interp, "if condition must be an Int")
     | varE(name):
         try:
           lookup(name, env)
@@ -269,3 +280,7 @@ check: interp(varE(#'x), [posn_class], obj, intV(0), mt_env)
 
 check: interp(varE(#'y), [posn_class], obj, intV(0), mt_env)
        ~is intV(20)
+check: interp(ifE(intE(9), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
+       ~is intV(2)
+check: interp(ifE(intE(0), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
+       ~is intV(1)

@@ -122,9 +122,9 @@ def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol *
                 try:
                   find_field_in_tree(name, class_name, t_classes)
                   ~catch:
-                    type_error(name, "free variable")  // Not a field or variable
+                    type_error(name, "invalid field")  // Not a field or variable
             | ~else:
-                type_error(name, "this is not an object")
+                type_error(name, "free variable")
     | letI(var_name, var_value, body):
         let value_type = recur(var_value, env):
             recur(body, cons(values(var_name, value_type), env))
