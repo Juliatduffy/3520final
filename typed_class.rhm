@@ -95,6 +95,17 @@ module test:
          ~is #true
 
 // ----------------------------------------
+fun find_lca(class1 :: Symbol, class2 :: Symbol, t_classes :: Listof(Symbol * ClassT)) :: Symbol:
+  cond
+  | class1 == class2:
+      class1  // Same class
+  | is_subclass(class1, class2, t_classes):
+      class2  // class1 is a subclass of class2
+  | is_subclass(class2, class1, t_classes):
+      class1  // class2 is a subclass of class1
+  | ~else:
+      let parent1 = classT.super_name(find(t_classes, class1)):
+        find_lca(parent1, class2, t_classes)
 
 def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol * Type)) -> Type:
   fun (exp, t_classes, this_type, arg_type, env):
@@ -117,14 +128,7 @@ def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol *
         try:
           find(env, name)
           ~catch:
-            match this_type
-            | objT(class_name):
-                try:
-                  find_field_in_tree(name, class_name, t_classes)
-                  ~catch:
-                    type_error(name, "invalid field")  // Not a field or variable
-            | ~else:
-                type_error(name, "free variable")
+            type_error(name, "free variable")
     | letI(var_name, var_value, body):
         let value_type = recur(var_value, env):
             recur(body, cons(values(var_name, value_type), env))
@@ -164,6 +168,22 @@ def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol *
                        method_name,
                        arg_exp, arg_type,
                        t_classes)
+    | ifI(cond_exp, then_exp, else_exp):
+        // Step 1: Type check the condition
+        let cond_type = recur(cond_exp, env):
+            if cond_type == intT()
+            | let then_type = recur(then_exp, env):
+                match then_type:
+                | intT():
+                    let else_type = recur(else_exp, env):
+                      if else_type == intT()
+                      | intT()
+                      | type_error(cond_exp, "incorrect type match")
+                | objT(class_name):
+                    let else_type = recur(else_exp, env):
+                      objT(find_lca(objT.class_name(then_type), objT.class_name(else_type), t_classes))  // Return the LCA type
+            | type_error(cond_exp, "Condition must evaluate to an integer")
+
 
 fun typecheck_send(class_name :: Symbol,
                    method_name :: Symbol,
@@ -374,3 +394,26 @@ module test:
          ~raises "free variable"
 
 
+def posn_t_class: values(#'Posn, classT(#'Object, [values(#'x, intT()), values(#'y, intT())], [values(#'mdist, methodT(#'arg, intT(), intT(), plusI(getI(thisI(), #'x), getI(thisI(), #'y))))]))
+
+typecheck(ifI(intI(1), newI(#'Posn, [intI(1), intI(2)]), newI(#'Posn, [intI(3), intI(4)])), [posn_t_class])
+
+module test:
+  def object_t_class: values(#'Object, classT(#'Object, [], []))
+  def c_t_class: values(#'C, classT(#'A, [], []))
+  def d_t_class: values(#'D, classT(#'A, [], []))
+  def all_classes: [object_t_class, a_t_class, b_t_class, c_t_class, d_t_class]
+  check: typecheck(ifI(intI(1), newI(#'A, []), newI(#'A, [])), all_classes)
+         ~is objT(#'A)
+  check: typecheck(ifI(intI(1), newI(#'C, []), newI(#'D, [])), all_classes)
+         ~is objT(#'A)
+  check: typecheck(ifI(intI(1), newI(#'A, []), newI(#'B, [])), all_classes)
+         ~is objT(#'A)
+  check: typecheck(ifI(intI(1), intI(42), newI(#'A, [])), all_classes)
+         ~raises "type mismatch"
+  check: typecheck(ifI(intI(1), ifI(intI(0), newI(#'C, []), newI(#'D, [])), newI(#'A, [])), all_classes)
+         ~is objT(#'A)
+  check: typecheck(ifI(intI(1), intI(42), intI(0)), all_classes)
+         ~is intT()
+  check: typecheck(ifI(intI(1), newI(#'Object, []), newI(#'Object, [])), all_classes)
+         ~is objT(#'Object)
