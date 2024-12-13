@@ -143,7 +143,7 @@ def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol *
                             arg_types,
                             field_types)))
         | objT(class_name)
-        | type_error(exp, "field type mismatch")
+        | error(#'typecheck, "type mismatch")
     | getI(obj_exp, field_name):
         match recur(obj_exp, env):
         | objT(class_name):
@@ -178,11 +178,11 @@ def typecheck_exp :: (ExpI, Listof(Symbol * ClassT), Type, Type, Listof(Symbol *
                     let else_type = recur(else_exp, env):
                       if else_type == intT()
                       | intT()
-                      | type_error(cond_exp, "incorrect type match")
+                      | error(#'typecheck, "type mismatch")
                 | objT(class_name):
                     let else_type = recur(else_exp, env):
                       objT(find_lca(objT.class_name(then_type), objT.class_name(else_type), t_classes))  // Return the LCA type
-            | type_error(cond_exp, "Condition must evaluate to an integer")
+            | error(#'typecheck, "Condition must evaluate to an integer")
 
 
 fun typecheck_send(class_name :: Symbol,
@@ -315,7 +315,7 @@ module test:
          ~raises "no type"
   check: typecheck(plusI(intI(1), newI(#'Object, [intI(1)])),
                    [])
-         ~raises "no type"
+         ~raises "type mismatch"
   check: typecheck(getI(intI(1), #'x),
                    [])
          ~raises "no type"
@@ -402,7 +402,9 @@ module test:
   def object_t_class: values(#'Object, classT(#'Object, [], []))
   def c_t_class: values(#'C, classT(#'A, [], []))
   def d_t_class: values(#'D, classT(#'A, [], []))
-  def all_classes: [object_t_class, a_t_class, b_t_class, c_t_class, d_t_class]
+  def x_t_class: values(#'X, classT(#'Object, [], []))
+  def y_t_class: values(#'Y, classT(#'Object, [], [])) 
+  def all_classes: [object_t_class, a_t_class, b_t_class, c_t_class, d_t_class, x_t_class, y_t_class]
   check: typecheck(ifI(intI(1), newI(#'A, []), newI(#'A, [])), all_classes)
          ~is objT(#'A)
   check: typecheck(ifI(intI(1), newI(#'C, []), newI(#'D, [])), all_classes)
@@ -411,6 +413,8 @@ module test:
          ~is objT(#'A)
   check: typecheck(ifI(intI(1), intI(42), newI(#'A, [])), all_classes)
          ~raises "type mismatch"
+  check: typecheck(ifI(intI(1), ifI(intI(0), newI(#'X, []), newI(#'Y, [])), newI(#'X, [])), all_classes)
+         ~is objT(#'Object)
   check: typecheck(ifI(intI(1), ifI(intI(0), newI(#'C, []), newI(#'D, [])), newI(#'A, [])), all_classes)
          ~is objT(#'A)
   check: typecheck(ifI(intI(1), intI(42), intI(0)), all_classes)

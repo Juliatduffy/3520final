@@ -105,12 +105,12 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
           ~catch:
             match this_val
             | objV(class_name, fields):
-                match find(classes, class_name)
-                | classC(field_names, _):
-                    try:
+                try:
+                  match find(classes, class_name)
+                  | classC(field_names, _):
                       find(map2(fun (n, v): values(n, v), field_names, fields), name)
-                      ~catch:
-                        error(#'interp, "free variable: " +& name)
+                  ~catch:
+                    error(#'interp, "free variable: " +& name)
             | ~else:
                 error(#'interp, "free variable: " +& name)
     | argE(): arg_val
