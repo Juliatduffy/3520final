@@ -48,6 +48,8 @@ fun parse(s :: Syntax, arg_name :: Symbol) :: ExpI:
           argI()
       | syntax_to_symbol(s) == #'this:
           thisI()
+      | syntax_to_symbol(s) == #'null:
+          nullI()
       | ~else:
           varI(syntax_to_symbol(s)) 
   | ~else:
@@ -205,3 +207,9 @@ module test:
                            [#'x, #'y, #'z],
                            [values(#'m1, argI()),
                             values(#'m2, thisI())]))
+  check: parse('', #'x)
+         ~raises "invalid input"
+  check: parse('null', #'none)
+         ~is nullI()
+  check: parse('if x == 0 | 10 | 20', #'x)
+         ~is ifI(argI(), intI(10), intI(20))

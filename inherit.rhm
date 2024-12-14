@@ -17,6 +17,7 @@ type ExpI
       else_branch :: ExpI) 
 | argI()
 | thisI()
+| nullI()
 | varI(name :: Symbol)
 | letI(var_name :: Symbol,
        var_value :: ExpI,
@@ -51,6 +52,7 @@ fun exp_i_to_c(a :: ExpI, super_name :: Symbol) :: Exp:
     | plusI(l, r): plusE(recur(l), recur(r))
     | multI(l, r): multE(recur(l), recur(r))
     | argI(): argE()
+    | nullI(): nullE()
     | varI(s): varE(s) // here can you check to see if s is a field name and if so, comvert this to a getE for that fiel? if not leave it as a var E
     | thisI(): thisE()
     | ifI(condition, then_branch, else_branch):
@@ -283,7 +285,7 @@ module test:
   check: interp_i(letI(#'x, intI(3), letI(#'y, intI(4), plusI(varI(#'x), varI(#'y)))), [])
          ~is intV(7)
   check: interp_i(varI(#'z), []) 
-         ~raises "free variable: z"
+         ~raises "free variable or field: z"
   check: interp_i(letI(#'a, intI(8), varI(#'a)), [])
          ~is intV(8)
   check: interp_i(letI(#'x, intI(10), plusI(varI(#'x), intI(5))), [])
@@ -291,7 +293,7 @@ module test:
   check: interp_i(letI(#'x, intI(3), letI(#'y, intI(4), plusI(varI(#'x), varI(#'y)))), [])
          ~is intV(7)
   check: interp_i(varI(#'z), [])
-         ~raises "free variable: z"
+         ~raises "free variable or field: z"
   check: interp_i(letI(#'a, intI(8), varI(#'a)), [])
          ~is intV(8)
 
@@ -315,3 +317,18 @@ module test:
            [single_arg_class]
          )
          ~is intV(16)
+  check: interp(ifE(intE(1), intE(42), intE(0)), [], objV(#'Object, []), intV(0), mt_env)
+         ~is intV(0)
+  check: interp(sendE(nullE(), #'method, intE(0)), [], objV(#'Object, []), intV(0), mt_env)
+         ~raises "Cannot call methods on null"
+  check: interp(getE(nullE(), #'field), [], objV(#'Object, []), intV(0), mt_env)
+         ~raises "Cannot access fields of null"
+  check: exp_i_to_c(nullI(), #'Object)
+         ~is nullE()
+  check: exp_i_to_c(ifI(intI(1), intI(42), intI(0)), #'Object)
+         ~is ifE(intE(1), intE(42), intE(0))
+  check: exp_i_to_c(ifI(intI(1), intI(42), intI(0)), #'Object)
+         ~is ifE(intE(1), intE(42), intE(0))
+  check: exp_i_to_c(ifI(plusI(intI(1), intI(2)), ifI(intI(0), intI(99), intI(100)), intI(50)), #'Object)
+         ~is ifE(plusE(intE(1), intE(2)), ifE(intE(0), intE(99), intE(100)), intE(50))
+ 

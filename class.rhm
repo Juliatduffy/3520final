@@ -20,6 +20,7 @@ type Exp
        var_value :: Exp,
        body :: Exp)
 | thisE()
+| nullE()
 | newE(class_name :: Symbol,
        args :: Listof(Exp))
 | getE(obj_exp :: Exp,
@@ -89,6 +90,7 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
     | plusE(l, r): num_plus(recur(l), recur(r))
     | multE(l, r): num_mult(recur(l), recur(r))
     | thisE(): this_val
+    | nullE(): objV(#'Object, [])
     | ifE(condition, then_branch, else_branch):
         match recur(condition)
         | intV(n):
@@ -101,18 +103,18 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
             error(#'interp, "if condition must be an Int")
     | varE(name):
         try:
-          lookup(name, env)
+          lookup(name, env)  // Look for local variable
           ~catch:
-            match this_val
-            | objV(class_name, fields):
-                try:
-                  match find(classes, class_name)
-                  | classC(field_names, _):
-                      find(map2(fun (n, v): values(n, v), field_names, fields), name)
-                  ~catch:
-                    error(#'interp, "free variable: " +& name)
-            | ~else:
-                error(#'interp, "free variable: " +& name)
+              match this_val
+              | objV(class_name, fields):
+                  try:
+                    match find(classes, class_name)
+                    | classC(field_names, _):
+                        find(map2(fun (n, v): values(n, v), field_names, fields), name)
+                    ~catch:
+                      error(#'interp, "free variable or field: " +& name)
+              | ~else:
+                  error(#'interp, "'this' must be of type Object")
     | argE(): arg_val
     | newE(class_name, field_exps):
         def c = find(classes, class_name)
@@ -121,22 +123,21 @@ def interp :: (Exp, Listof(Symbol * Class), Value, Value, Env) -> Value:
         | objV(class_name, vals)
         | error(#'interp, "wrong field count")
     | getE(obj_exp, field_name):
-        match recur(obj_exp)
+        match interp(obj_exp, classes, this_val, arg_val, env):
         | objV(class_name, fields):
-            match find(classes, class_name)
-            | classC(field_names, methods):
-                find(map2(fun (n, v): values(n, v), field_names, fields),
-                     field_name)
-        | ~else:
-            error(#'interp, "not an object")
+            if class_name == #'Object:
+            | error(#'interp, "Cannot access fields of null")
+            | find(map2(fun (n, v): values(n, v), classC.field_names(find(classes, class_name)), fields), field_name)
+        | ~else: error(#'interp, "Expected an object")
     | sendE(obj_exp, method_name, arg_exp):
-        def obj = recur(obj_exp)
-        def arg_val = recur(arg_exp)
+        def obj = interp(obj_exp, classes, this_val, arg_val, env)
+        def arg = interp(arg_exp, classes, this_val, arg_val, env)
         match obj
         | objV(class_name, fields):
-            call_method(class_name, method_name, classes, obj, arg_val)
-        | ~else:
-            error(#'interp, "not an object")
+            if class_name == #'Object:
+            | error(#'interp, "Cannot call methods on null")
+            | call_method(class_name, method_name, classes, obj, arg)
+        | ~else: error(#'interp, "Expected an object")
     | ssendE(obj_exp, class_name, method_name, arg_exp):
         def obj = recur(obj_exp)
         def arg_val = recur(arg_exp)
@@ -228,9 +229,9 @@ module test:
   check: interp_posn(plusE(intE(1), posn27))
          ~raises "not a number"
   check: interp_posn(getE(intE(1), #'x))
-         ~raises "not an object"
+         ~raises "Expected an object"
   check: interp_posn(sendE(intE(1), #'mdist, intE(0)))
-         ~raises "not an object"
+         ~raises "Expected an object"
   check: interp_posn(newE(#'Posn, [intE(0)]))
          ~raises "wrong field count"
   check: interp(letE(#'x, intE(5), plusE(varE(#'x), intE(3))),
@@ -275,12 +276,39 @@ def posn_class:
 
 def obj = objV(#'Posn, [intV(10), intV(20)])
 
-check: interp(varE(#'x), [posn_class], obj, intV(0), mt_env)
-       ~is intV(10)
+module test:
+  check: interp(varE(#'x), [posn_class], obj, intV(0), mt_env)
+         ~is intV(10)
 
-check: interp(varE(#'y), [posn_class], obj, intV(0), mt_env)
-       ~is intV(20)
-check: interp(ifE(intE(9), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
-       ~is intV(2)
-check: interp(ifE(intE(0), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
-       ~is intV(1)
+  check: interp(varE(#'y), [posn_class], obj, intV(0), mt_env)
+         ~is intV(20)
+  check: interp(ifE(intE(9), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
+         ~is intV(2)
+  check: interp(ifE(intE(0), intE(1), intE(2)), [], objV(#'Object, []), intV(0), mt_env)
+         ~is intV(1)
+  check: interp(nullE(), [], objV(#'Object, []), intV(0), mt_env)
+         ~is objV(#'Object, [])
+  check: interp(ifE(nullE(), intE(42), intE(24)), [], objV(#'Object, []), intV(0), mt_env)
+         ~raises "if condition must be an Int"
+  check: interp(sendE(nullE(), #'someMethod, intE(5)), [], objV(#'Object, []), intV(0), mt_env)
+         ~raises "Cannot call methods on null"
+  check: interp(varE(#'unusedVariable),
+                [], objV(#'Object, []), intV(0), mt_env)
+         ~raises "free variable or field: unusedVariable"
+  check: interp(varE(#'undefinedVar),[posn_class], objV(#'Object, []), intV(0), mt_env)
+         ~raises "free variable or field: undefinedVar"
+  check: interp(getE(nullE(), #'x),[posn_class], objV(#'Object, []), intV(0), mt_env)
+         ~raises "Cannot access fields of null"
+  check: interp(varE(#'nonexistentField), [posn_class],
+                objV(#'Posn, [intV(10), intV(20)]),
+                intV(0),
+                mt_env)
+         ~raises "free variable or field: nonexistentField"
+  check: interp(varE(#'nonexistentVar),
+                [posn_class],
+                objV(#'Object, []), // No fields to search
+                intV(0),
+                mt_env)
+         ~raises "free variable or field: nonexistentVar"
+  check: interp(varE(#'x), [values(#'SomeClass, classC([], []))] , intV(42), intV(0), mt_env)
+         ~raises "'this' must be of type Object"

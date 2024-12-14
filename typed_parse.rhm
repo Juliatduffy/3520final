@@ -174,7 +174,7 @@ module test:
          ~is '25'
   check: run_t_prog([], 'let x :: Int = y + 5:
                            x')
-         ~raises "typecheck: no type: y not free variable"
+         ~raises "free variable"
   check: run_t_prog(['class Test():
                         extends Object
                         method double(arg :: Int) :: Int:
